@@ -96,7 +96,7 @@ THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
 	} );
 
 	this.enabled = true;
-	this.needsSwap = false;
+	this.needsSwap = true;
 
 	this.oldClearColor = new THREE.Color();
 	this.oldClearAlpha = 1;
@@ -362,6 +362,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 			this.overlayMaterial.uniforms[ "edgeTexture1" ].value = this.renderTargetEdgeBuffer1.texture;
 			this.overlayMaterial.uniforms[ "edgeTexture2" ].value = this.renderTargetEdgeBuffer2.texture;
 			this.overlayMaterial.uniforms[ "patternTexture" ].value = this.patternTexture;
+			this.overlayMaterial.uniforms[ "backbuffer" ].value = readBuffer.texture;
 			this.overlayMaterial.uniforms[ "edgeStrength" ].value = this.edgeStrength;
 			this.overlayMaterial.uniforms[ "edgeGlow" ].value = this.edgeGlow;
 			this.overlayMaterial.uniforms[ "usePatternTexture" ].value = this.usePatternTexture;
@@ -369,7 +370,8 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 
 			if ( maskActive ) renderer.context.enable( renderer.context.STENCIL_TEST );
 
-			renderer.setRenderTarget( readBuffer );
+			renderer.setRenderTarget( writeBuffer );
+			renderer.clear();
 			renderer.render( this.scene, this.camera );
 
 			renderer.setClearColor( this.oldClearColor, this.oldClearAlpha );
@@ -380,7 +382,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 		if ( this.renderToScreen ) {
 
 			this.quad.material = this.materialCopy;
-			this.copyUniforms[ "tDiffuse" ].value = readBuffer.texture;
+			this.copyUniforms[ "tDiffuse" ].value = writeBuffer.texture;
 			renderer.setRenderTarget( null );
 			renderer.render( this.scene, this.camera );
 
@@ -541,6 +543,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 				"edgeTexture1": { value: null },
 				"edgeTexture2": { value: null },
 				"patternTexture": { value: null },
+				"backbuffer": { value: null },
 				"edgeStrength": { value: 1.0 },
 				"edgeGlow": { value: 1.0 },
 				"usePatternTexture": { value: 0.0 }
@@ -554,16 +557,18 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 				}",
 
 			fragmentShader:
-				"varying vec2 vUv;\
+				`varying vec2 vUv;\
 				uniform sampler2D maskTexture;\
 				uniform sampler2D edgeTexture1;\
 				uniform sampler2D edgeTexture2;\
 				uniform sampler2D patternTexture;\
+				uniform sampler2D backbuffer;\
 				uniform float edgeStrength;\
 				uniform float edgeGlow;\
 				uniform bool usePatternTexture;\
 				\
 				void main() {\
+					vec4 backbuffer = texture2D(backbuffer, vUv);
 					vec4 edgeValue1 = texture2D(edgeTexture1, vUv);\
 					vec4 edgeValue2 = texture2D(edgeTexture2, vUv);\
 					vec4 maskColor = texture2D(maskTexture, vUv);\
@@ -573,12 +578,43 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 					vec4 finalColor = edgeStrength * maskColor.r * edgeValue;\
 					if(usePatternTexture)\
 						finalColor += + visibilityFactor * (1.0 - maskColor.r) * (1.0 - patternColor.r);\
-					gl_FragColor = finalColor;\
-				}",
-			blending: THREE.AdditiveBlending,
-			depthTest: false,
-			depthWrite: false,
-			transparent: true
+
+					#define col finalColor.rgb
+			#if 0
+					col += backbuffer.rgb;
+					
+					// gamma correction
+					const vec3 gamma = vec3(1. / 2.2);
+				#if 1
+					// image exposure
+					const float exposure = 0.9;
+
+					// exposure tone mapping
+					#if 1
+						col = vec3(1.0) - exp(-col * exposure);
+					#else
+						col *= exposure;
+					#endif
+				#else
+					// reinhard tone mapping
+					col = col / (col + 1.0);
+				#endif
+
+					// gamma correction
+					col = pow( col, gamma );
+					
+					// color grading
+					// col = pow( col, vec3(0.8,0.85,0.9) );
+			#else
+					col = mix(backbuffer.rgb, col, dot(col, vec3(0.3333333333333333333333333)));
+			#endif
+					#undef col
+
+					gl_FragColor = vec4(finalColor);
+				}`,
+				depthTest: false,
+				depthWrite: false,
+				transparent: false
 		} );
 
 	}

@@ -153,6 +153,7 @@
 				renderer.shadowMap.enabled = true;
 				// todo - support pixelRatio in this demo
 				renderer.setSize( width, height );
+				renderer.setClearColor(0xffffff, 1);
 				document.body.appendChild( renderer.domElement );
 
 				scene = new THREE.Scene();
@@ -238,12 +239,15 @@
 
 				for ( var i = 0; i < 20; i ++ ) {
 
-					var material = new THREE.MeshLambertMaterial();
+					var material = new THREE.MeshStandardMaterial({
+						opacity: Math.random()*0.5+0.2,
+						transparent: true
+					});
 					material.color.setHSL( Math.random(), 1.0, 0.3 );
 
 					var mesh = new THREE.Mesh( geometry, material );
 					mesh.position.x = Math.random() * 4 - 2;
-					mesh.position.y = Math.random() * 4 - 2;
+					mesh.position.y = Math.random() * 4 - 1;
 					mesh.position.z = Math.random() * 4 - 2;
 					mesh.receiveShadow = true;
 					mesh.castShadow = true;
@@ -327,7 +331,10 @@
 
 					checkIntersection();
 
-				}
+				};
+				window.addEventListener( 'load', function(){
+					checkIntersection();
+				} );
 
 				function addSelectedObject( object ) {
 
