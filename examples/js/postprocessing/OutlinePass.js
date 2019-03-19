@@ -377,17 +377,12 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 			renderer.setClearColor( this.oldClearColor, this.oldClearAlpha );
 			renderer.autoClear = oldAutoClear;
 
-		}
-
-		if ( this.renderToScreen ) {
-
+		} else {
 			this.quad.material = this.materialCopy;
-			this.copyUniforms[ "tDiffuse" ].value = writeBuffer.texture;
-			renderer.setRenderTarget( null );
-			renderer.render( this.scene, this.camera );
-
+			this.copyUniforms[ "tDiffuse" ].value = readBuffer.texture;
+			renderer.setRenderTarget( writeBuffer );
+			renderer.render( this.scene, this.camera );	
 		}
-
 	},
 
 	getPrepareMaskMaterial: function () {
