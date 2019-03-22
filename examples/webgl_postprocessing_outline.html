@@ -45,6 +45,7 @@
 		<script src="js/postprocessing/RenderPass.js"></script>
 		<script src="js/postprocessing/ShaderPass.js"></script>
 		<script src="js/postprocessing/OutlinePass.js"></script>
+		<script src="js/postprocessing/OutlinePass2.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 		<script src='js/libs/dat.gui.min.js'></script>
 
@@ -67,7 +68,7 @@
 			var mouse = new THREE.Vector2();
 			var selectedObjects = [];
 
-			var composer, effectFXAA, outlinePass;
+			var composer, effectFXAA, outlinePass, outlinePass2;
 			var obj3d = new THREE.Object3D();
 
 			var group = new THREE.Group();
@@ -255,6 +256,39 @@
 
 				}
 
+				//------------- Line
+				// var vertices = [];
+				// var divisions = 1000;
+				// for ( var i = 0; i <= divisions; i ++ ) {
+				// 	var v = ( i / divisions ) * ( Math.PI * 2 );
+				// 	var x = Math.sin( v );
+				// 	var z = Math.cos( v );
+				// 	vertices.push( x, Math.sin(Math.pow(x*x*z*z, 0.1))-0.3, z );
+				// }
+				// var geometry = new THREE.BufferGeometry();
+				// geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+
+				// var material = new THREE.LineBasicMaterial( {
+				// 	color: 'blue',
+				// 	linewidth: 2
+				// } );
+				// var line = new THREE.Line( geometry, material );
+				// line.scale.setScalar( 5 );
+
+				var curve = new THREE.SplineCurve( [
+					new THREE.Vector2( -10, 0 ),
+					new THREE.Vector2( -5, 5 ),
+					new THREE.Vector2( 0, 0 ),
+					new THREE.Vector2( 5, -5 ),
+					new THREE.Vector2( 10, 0 )
+				] );
+				var points = curve.getPoints( 100 );
+				var geometry = new THREE.BufferGeometry().setFromPoints( points );
+				var material = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+				var line = new THREE.Line( geometry, material );
+
+				scene.add( line );
+
 				var floorMaterial = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide } );
 
 				var floorGeometry = new THREE.PlaneBufferGeometry( 12, 12 );
@@ -299,6 +333,9 @@
 
 				loader.load( 'textures/tri_pattern.jpg', onLoad );
 
+				outlinePass2 = new THREE.OutlinePass2( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
+				composer.addPass( outlinePass2 );
+
 				effectFXAA = new THREE.ShaderPass( THREE.FXAAShader );
 				effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
 				effectFXAA.renderToScreen = true;
@@ -340,7 +377,6 @@
 				}
 
 				function checkIntersection() {
-
 					raycaster.setFromCamera( mouse, camera );
 
 					var intersects = raycaster.intersectObjects( [ scene ], true );
@@ -348,15 +384,27 @@
 					if ( intersects.length > 0 ) {
 
 						var selectedObject = intersects[ 0 ].object;
-						addSelectedObject( selectedObject );
-						outlinePass.selectedObjects = selectedObjects;
-
-					} else {
-
-						// outlinePass.selectedObjects = [];
-
+						if(selectedObject.isLine){
+							outlinePass.selectedObjects = [];
+							outlinePass2.selectedObjects = [selectedObject];
+						} else {
+							outlinePass.selectedObjects = [selectedObject];
+							outlinePass2.selectedObjects = [];
+						}
 					}
 
+					// check of intersection with THREE.LINE
+					// intersects = [];
+					// line.raycast(raycaster, intersects);
+					// if(intersects.length > 0){
+					// 	// line.material.linewidth = 5;
+					// 	line.material.color.setRGB(0.5, 0.3, 0.7);
+					// 	selectedObjects.push(line);
+					// } else {
+					// 	// line.material.linewidth = 2;
+					// 	line.material.color.setRGB(0.0, 0.5, 1.0);
+					// }
+					// console.log(intersects.length>0?"hit":"nothing"); 
 				}
 
 			}

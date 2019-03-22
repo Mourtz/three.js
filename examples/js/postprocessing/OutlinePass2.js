@@ -2,17 +2,17 @@
  * @author spidersharma / http://eduperiment.com/
  */
 
-THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
+THREE.OutlinePass2 = function ( resolution, scene, camera, selectedObjects ) {
 
 	this.renderScene = scene;
 	this.renderCamera = camera;
 	this.selectedObjects = selectedObjects !== undefined ? selectedObjects : [];
-	this.visibleEdgeColor = new THREE.Color( 1, 1, 1 );
-	this.hiddenEdgeColor = new THREE.Color( 0.1, 0.04, 0.02 );
-	this.edgeGlow = 0.0;
+	this.visibleEdgeColor = new THREE.Color( 0, 1, 0 );
+	this.hiddenEdgeColor = new THREE.Color( 1, 0, 0 );
+	this.edgeGlow = 0.2;
 	this.usePatternTexture = false;
-	this.edgeThickness = 1.0;
-	this.edgeStrength = 3.0;
+	this.edgeThickness = 2.0;
+	this.edgeStrength = 10.0;
 	this.downSampleRatio = 2;
 	this.pulsePeriod = 0;
 
@@ -28,7 +28,7 @@ THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
 	this.maskBufferMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff } );
 	this.maskBufferMaterial.side = THREE.DoubleSide;
 	this.renderTargetMaskBuffer = new THREE.WebGLRenderTarget( this.resolution.x, this.resolution.y, pars );
-	this.renderTargetMaskBuffer.texture.name = "OutlinePass.mask";
+	this.renderTargetMaskBuffer.texture.name = "OutlinePass2.mask";
 	this.renderTargetMaskBuffer.texture.generateMipmaps = false;
 
 	this.depthMaterial = new THREE.MeshDepthMaterial();
@@ -41,26 +41,26 @@ THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
 	this.prepareMaskMaterial.fragmentShader = replaceDepthToViewZ( this.prepareMaskMaterial.fragmentShader, this.renderCamera );
 
 	this.renderTargetDepthBuffer = new THREE.WebGLRenderTarget( this.resolution.x, this.resolution.y, pars );
-	this.renderTargetDepthBuffer.texture.name = "OutlinePass.depth";
+	this.renderTargetDepthBuffer.texture.name = "OutlinePass2.depth";
 	this.renderTargetDepthBuffer.texture.generateMipmaps = false;
 
 	this.renderTargetMaskDownSampleBuffer = new THREE.WebGLRenderTarget( resx, resy, pars );
-	this.renderTargetMaskDownSampleBuffer.texture.name = "OutlinePass.depthDownSample";
+	this.renderTargetMaskDownSampleBuffer.texture.name = "OutlinePass2.depthDownSample";
 	this.renderTargetMaskDownSampleBuffer.texture.generateMipmaps = false;
 
 	this.renderTargetBlurBuffer1 = new THREE.WebGLRenderTarget( resx, resy, pars );
-	this.renderTargetBlurBuffer1.texture.name = "OutlinePass.blur1";
+	this.renderTargetBlurBuffer1.texture.name = "OutlinePass2.blur1";
 	this.renderTargetBlurBuffer1.texture.generateMipmaps = false;
 	this.renderTargetBlurBuffer2 = new THREE.WebGLRenderTarget( Math.round( resx / 2 ), Math.round( resy / 2 ), pars );
-	this.renderTargetBlurBuffer2.texture.name = "OutlinePass.blur2";
+	this.renderTargetBlurBuffer2.texture.name = "OutlinePass2.blur2";
 	this.renderTargetBlurBuffer2.texture.generateMipmaps = false;
 
 	this.edgeDetectionMaterial = this.getEdgeDetectionMaterial();
 	this.renderTargetEdgeBuffer1 = new THREE.WebGLRenderTarget( resx, resy, pars );
-	this.renderTargetEdgeBuffer1.texture.name = "OutlinePass.edge1";
+	this.renderTargetEdgeBuffer1.texture.name = "OutlinePass2.edge1";
 	this.renderTargetEdgeBuffer1.texture.generateMipmaps = false;
 	this.renderTargetEdgeBuffer2 = new THREE.WebGLRenderTarget( Math.round( resx / 2 ), Math.round( resy / 2 ), pars );
-	this.renderTargetEdgeBuffer2.texture.name = "OutlinePass.edge2";
+	this.renderTargetEdgeBuffer2.texture.name = "OutlinePass2.edge2";
 	this.renderTargetEdgeBuffer2.texture.generateMipmaps = false;
 
 	var MAX_EDGE_THICKNESS = 4;
@@ -78,7 +78,7 @@ THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
 
 	// copy material
 	if ( THREE.CopyShader === undefined )
-		console.error( "THREE.OutlinePass relies on THREE.CopyShader" );
+		console.error( "THREE.OutlinePass2 relies on THREE.CopyShader" );
 
 	var copyShader = THREE.CopyShader;
 
@@ -122,9 +122,9 @@ THREE.OutlinePass = function ( resolution, scene, camera, selectedObjects ) {
 
 };
 
-THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype ), {
+THREE.OutlinePass2.prototype = Object.assign( Object.create( THREE.Pass.prototype ), {
 
-	constructor: THREE.OutlinePass,
+	constructor: THREE.OutlinePass2,
 
 	dispose: function () {
 
@@ -196,7 +196,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 
 		function gatherSelectedMeshesCallBack( object ) {
 
-			if ( object.isMesh ) selectedMeshes.push( object );
+			if ( object.isLine ) selectedMeshes.push( object );
 
 		}
 
@@ -258,7 +258,6 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 	render: function ( renderer, writeBuffer, readBuffer, deltaTime, maskActive ) {
 
 		if ( this.selectedObjects.length > 0 ) {
-
 			this.oldClearColor.copy( renderer.getClearColor() );
 			this.oldClearAlpha = renderer.getClearAlpha();
 			var oldAutoClear = renderer.autoClear;
@@ -296,6 +295,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 			renderer.setRenderTarget( this.renderTargetMaskBuffer );
 			renderer.clear();
 			renderer.render( this.renderScene, this.renderCamera );
+
 			this.renderScene.overrideMaterial = null;
 			this.changeVisibilityOfNonSelectedObjects( true );
 
@@ -308,23 +308,12 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 			renderer.clear();
 			renderer.render( this.scene, this.camera );
 
-			this.tempPulseColor1.copy( this.visibleEdgeColor );
-			this.tempPulseColor2.copy( this.hiddenEdgeColor );
-
-			if ( this.pulsePeriod > 0 ) {
-
-				var scalar = ( 1 + 0.25 ) / 2 + Math.cos( performance.now() * 0.01 / this.pulsePeriod ) * ( 1.0 - 0.25 ) / 2;
-				this.tempPulseColor1.multiplyScalar( scalar );
-				this.tempPulseColor2.multiplyScalar( scalar );
-
-			}
-
 			// 3. Apply Edge Detection Pass
 			this.quad.material = this.edgeDetectionMaterial;
 			this.edgeDetectionMaterial.uniforms[ "maskTexture" ].value = this.renderTargetMaskDownSampleBuffer.texture;
 			this.edgeDetectionMaterial.uniforms[ "texSize" ].value = new THREE.Vector2( this.renderTargetMaskDownSampleBuffer.width, this.renderTargetMaskDownSampleBuffer.height );
-			this.edgeDetectionMaterial.uniforms[ "visibleEdgeColor" ].value = this.tempPulseColor1;
-			this.edgeDetectionMaterial.uniforms[ "hiddenEdgeColor" ].value = this.tempPulseColor2;
+			this.edgeDetectionMaterial.uniforms[ "visibleEdgeColor" ].value = this.visibleEdgeColor;
+			this.edgeDetectionMaterial.uniforms[ "hiddenEdgeColor" ].value = this.hiddenEdgeColor;
 			renderer.setRenderTarget( this.renderTargetEdgeBuffer1 );
 			renderer.clear();
 			renderer.render( this.scene, this.camera );
@@ -420,8 +409,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 				'	float depth = unpackRGBAToDepth(texture2DProj( depthTexture, projTexCoord ));',
 				'	float viewZ = - DEPTH_TO_VIEW_Z( depth, cameraNearFar.x, cameraNearFar.y );',
 				'	float depthTest = (-vPosition.z > viewZ) ? 1.0 : 0.0;',
-				'	gl_FragColor = vec4(0.0, depthTest, 1.0, 1.0);',
-
+				'	gl_FragColor = vec4(depth, viewZ, depthTest, 0.0);',
 				'}'
 			].join( '\n' )
 
@@ -448,28 +436,17 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 				}",
 
 			fragmentShader:
-				"varying vec2 vUv;\
+				`varying vec2 vUv;\
 				uniform sampler2D maskTexture;\
 				uniform vec2 texSize;\
 				uniform vec3 visibleEdgeColor;\
 				uniform vec3 hiddenEdgeColor;\
 				\
-				void main() {\n\
-					vec2 invSize = 1.0 / texSize;\
-					vec4 uvOffset = vec4(1.0, 0.0, 0.0, 1.0) * vec4(invSize, invSize);\
-					vec4 c1 = texture2D( maskTexture, vUv + uvOffset.xy);\
-					vec4 c2 = texture2D( maskTexture, vUv - uvOffset.xy);\
-					vec4 c3 = texture2D( maskTexture, vUv + uvOffset.yw);\
-					vec4 c4 = texture2D( maskTexture, vUv - uvOffset.yw);\
-					float diff1 = (c1.r - c2.r)*0.5;\
-					float diff2 = (c3.r - c4.r)*0.5;\
-					float d = length( vec2(diff1, diff2) );\
-					float a1 = min(c1.g, c2.g);\
-					float a2 = min(c3.g, c4.g);\
-					float visibilityFactor = min(a1, a2);\
-					vec3 edgeColor = 1.0 - visibilityFactor > 0.001 ? visibleEdgeColor : hiddenEdgeColor;\
-					gl_FragColor = vec4(edgeColor, 1.0) * vec4(d);\
-				}"
+				void main() {\n\					
+					vec4 edge = texture2D( maskTexture, vUv);
+					vec3 edgeColor = 1.0 - edge.b > 0.001 ? visibleEdgeColor : hiddenEdgeColor;\
+					gl_FragColor = vec4( edgeColor*(1.0-edge.w), 1.0);\
+				}`
 		} );
 
 	},
@@ -551,6 +528,7 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 
 			fragmentShader:
 				`varying vec2 vUv;\
+				precision highp float;
 				uniform sampler2D maskTexture;\
 				uniform sampler2D edgeTexture1;\
 				uniform sampler2D edgeTexture2;\
@@ -565,46 +543,19 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 					vec4 edgeValue1 = texture2D(edgeTexture1, vUv);\
 					vec4 edgeValue2 = texture2D(edgeTexture2, vUv);\
 					vec4 maskColor = texture2D(maskTexture, vUv);\
-					vec4 patternColor = texture2D(patternTexture, 6.0 * vUv);\
-					float visibilityFactor = 1.0 - maskColor.g > 0.0 ? 1.0 : 0.5;\
 					vec4 edgeValue = edgeValue1 + edgeValue2 * edgeGlow;\
-					vec4 finalColor = edgeStrength * maskColor.r * edgeValue;\
-					if(usePatternTexture)\
-						finalColor += + visibilityFactor * (1.0 - maskColor.r) * (1.0 - patternColor.r);\
+					vec4 finalColor = edgeStrength * maskColor.w * edgeValue;\
 
 					#define col finalColor.rgb
-			#if 0
-					col += backbuffer.rgb;
-					
-					// gamma correction
-					const vec3 gamma = vec3(1. / 2.2);
-				#if 1
-					// image exposure
-					const float exposure = 0.9;
 
-					// exposure tone mapping
-					#if 1
-						col = vec3(1.0) - exp(-col * exposure);
-					#else
-						col *= exposure;
-					#endif
-				#else
-					// reinhard tone mapping
-					col = col / (col + 1.0);
-				#endif
+					// col = edgeValue.rgb;
+					col = mix(backbuffer.rgb, col, dot(col, vec3(0.33333333)));
+					// col = mix(backbuffer.rgb, col, max(col.r, max(col.g, col.b)));
+					// col += backbuffer.rgb;
 
-					// gamma correction
-					col = pow( col, gamma );
+					gl_FragColor = vec4(col, 1.0);
 					
-					// color grading
-					// col = pow( col, vec3(0.8,0.85,0.9) );
-			#else
-					// col = edgeValue1.rgb;
-					col = mix(backbuffer.rgb, col, dot(col, vec3(0.33333)));
-			#endif
 					#undef col
-
-					gl_FragColor = vec4(finalColor);
 				}`,
 				depthTest: false,
 				depthWrite: false,
@@ -615,5 +566,5 @@ THREE.OutlinePass.prototype = Object.assign( Object.create( THREE.Pass.prototype
 
 } );
 
-THREE.OutlinePass.BlurDirectionX = new THREE.Vector2( 1.0, 0.0 );
-THREE.OutlinePass.BlurDirectionY = new THREE.Vector2( 0.0, 1.0 );
+THREE.OutlinePass2.BlurDirectionX = new THREE.Vector2( 1.0, 0.0 );
+THREE.OutlinePass2.BlurDirectionY = new THREE.Vector2( 0.0, 1.0 );
